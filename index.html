@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queclink @Track Decoder</title>
+<meta name="description" content="Decodificador de tramas ASCII del protocolo Queclink @Track (GV350CEU, GV58CG) en el navegador.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="toolbar">
+  <div class="app-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+  </div>
+  <span class="app-name">Queclink Decoder</span>
+  <span class="app-meta" id="appMeta"></span>
+  <div class="spacer"></div>
+  <div class="segmented model-picker" id="modelPicker" role="tablist" aria-label="Modelo"></div>
+  <button class="tool-btn icon-only" id="themeToggle" aria-label="Cambiar tema"></button>
+</header>
+
+<main class="main">
+  <aside class="sidebar" aria-label="Entrada">
+    <div class="sidebar-inner">
+      <div class="group-label">Trama</div>
+      <textarea class="frame-input" id="frameInput" spellcheck="false" autocomplete="off" aria-label="Trama GPS"
+        placeholder="Pega una o varias tramas ASCII&#10;+RESP:GTFRI,740D01,864696060004173,GV350CEU,…$"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" id="btnDecode" title="Ctrl+Enter">Decodificar</button>
+        <button class="btn btn-secondary" id="btnClear">Limpiar</button>
+        <span class="hint">Ctrl + Enter</span>
+      </div>
+      <p class="footnote">Se decodifica al pegar. Varias tramas: sepáralas con <code>$</code> o con un salto de línea.</p>
+
+      <div class="group-label">Opciones</div>
+      <div class="list">
+        <label class="list-row">
+          <span class="text"><span class="title">Ocultar campos vacíos</span><span class="sub" style="display:block">Reservados y opcionales sin dato</span></span>
+          <input type="checkbox" class="switch" id="optHideEmpty">
+        </label>
+        <label class="list-row">
+          <span class="text"><span class="title">Forzar longitud Oeste</span><span class="sub" style="display:block">Solo para equipos que reportan el Oeste como positivo</span></span>
+          <input type="checkbox" class="switch" id="optForceWest">
+        </label>
+      </div>
+
+      <div class="group-label">Ejemplos del protocolo</div>
+      <div id="examples"></div>
+
+      <div class="group-label">Recientes <span class="spacer"></span><button id="btnClearHistory" type="button">Borrar</button></div>
+      <div class="list" id="history"></div>
+
+      <p class="footnote" style="margin-top:24px"><span id="modelNote"></span> Se aceptan <code>+RESP</code>, <code>+BUFF</code>, <code>+ACK</code> y <code>+SACK</code>. El modelo se detecta por la versión de protocolo; en los mensajes sin definición propia, el bloque GNSS se detecta automáticamente. Todo se procesa en tu navegador: las tramas no se envían a ningún servidor.</p>
+    </div>
+  </aside>
+
+  <section class="content" id="outputPanel" aria-label="Decodificación"></section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="assets/core.js"></script>
+<script src="models/gv350ceu.js"></script>
+<script src="models/gv58cg.js"></script>
+</body>
+</html>

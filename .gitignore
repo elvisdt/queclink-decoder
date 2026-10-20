@@ -1,0 +1,9 @@
+# Documentación de Queclink: es confidencial, no se publica
+*.pdf
+docs/protocolos/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+node_modules/
