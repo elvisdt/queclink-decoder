@@ -29,6 +29,16 @@ python -m http.server 8000
 # http://localhost:8000
 ```
 
+## Publicar en GitHub Pages
+
+El workflow `.github/workflows/pages.yml` publica el sitio automáticamente al hacer *push* a `main`. Para activarlo:
+
+1. En el repositorio, abre **Settings → Pages**.
+2. En **Build and deployment → Source**, selecciona **GitHub Actions**.
+3. Ejecuta el workflow desde **Actions → Deploy to GitHub Pages** o haz *push* a `main`.
+
+La URL del sitio aparece en el resultado del despliegue y en **Settings → Pages**.
+
 ## Estructura
 
 ```
