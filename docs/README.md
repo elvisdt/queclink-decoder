@@ -7,4 +7,4 @@ Para trabajar en local, copia los PDFs en `docs/protocolos/`; esa carpeta está 
 | Modelo   | Versión usada |
 |----------|---------------|
 | GV350CEU | v13.06 (compatible desde v09.04) |
-| GV58CG   | v1.20 |
+| GV58CG   | v14.09 |

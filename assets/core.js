@@ -432,12 +432,31 @@ function decodeFRI(c, msg) {
   c.take(RID(msg));
   const num = c.take({ n: 'Número de posiciones', d: 'Puntos GNSS en el mensaje (1–15). Si hay varios, el bloque GNSS se repite.', k: 'number' });
   const count = Math.max(1, Math.min(15, parseInt(num, 10) || 1));
-  for (let k = 0; k < count; k++) gnssBlock(c, { trigger: true, label: count > 1 ? `POSICIÓN GNSS ${k + 1} DE ${count}` : 'POSICIÓN GNSS' });
+  for (let k = 0; k < count; k++) {
+    if (eri && hasExtraGnssPrefix(c)) {
+      c.section('DATOS ADICIONALES GNSS', 'status');
+      c.take({ n: 'Campo previo al bloque GNSS (sin definir)', d: 'Campo presente en esta trama pero no definido en el protocolo documentado' });
+      c.warnings.push('Se detectó un campo adicional antes del bloque GNSS; se conservó sin interpretar para alinear los campos siguientes.');
+    }
+    gnssBlock(c, { trigger: true, label: count > 1 ? `POSICIÓN GNSS ${k + 1} DE ${count}` : 'POSICIÓN GNSS' });
+  }
 
   c.section('TELEMETRÍA', 'status');
   c.takeAll(ACTIVE.fri.telemetry);
   if (!eri) { c.takeAll(ACTIVE.fri.tail); return; }
   ACTIVE.fri.eri(c, eriMask);
+}
+function hasExtraGnssPrefix(c) {
+  const expectedLongitude = parseFloat(c.peek(4));
+  const expectedLatitude = parseFloat(c.peek(5));
+  const shiftedLongitude = parseFloat(c.peek(5));
+  const shiftedLatitude = parseFloat(c.peek(6));
+  return !/^\d{14}$/.test(c.peek(6) || '')
+    && /^\d{14}$/.test(c.peek(7) || '')
+    && (!Number.isFinite(expectedLongitude) || Math.abs(expectedLongitude) > 180
+      || !Number.isFinite(expectedLatitude) || Math.abs(expectedLatitude) > 90)
+    && Number.isFinite(shiftedLongitude) && Math.abs(shiftedLongitude) <= 180
+    && Number.isFinite(shiftedLatitude) && Math.abs(shiftedLatitude) <= 90;
 }
 function eriMaskText(v) {
   const n = hexv(v);
@@ -455,7 +474,7 @@ function decodeEriOptional(c, mask) {
   }
   if (bit(mask, 29)) { c.rest('DATOS EXPANDIDOS DE COMBUSTIBLE (ERI bit 29) Y SIGUIENTES'); return; }
   if (bit(mask, 1)) decodeOneWire(c);
-  if (bit(mask, 2)) { c.rest('DATOS CAN (ERI bit 2 · formato según AT+GTCAN) Y SIGUIENTES', 'CAN'); return; }
+  if (bit(mask, 2)) { decodeCanData(c); return; }
   if (bit(mask, 3) || bit(mask, 4)) {
     c.section('SENSORES DE COMBUSTIBLE', 'status');
     const n = parseInt(c.take({ n: 'Número de sensores', k: 'fuelSensorCount' }), 10) || 0;
@@ -479,6 +498,94 @@ function decodeEriOptional(c, mask) {
   }
   if (bit(mask, 8)) decodeBtAccessories(c);
   if (bit(mask, 15)) decodeRatBand(c);
+}
+const CAN_REPORT_FIELDS = {
+  0: { n: 'VIN', c: 'val-id', d: 'Número de identificación del vehículo', k: 'canVin' },
+  1: { n: 'Estado de ignición CAN', c: 'val-status', d: v => ({ '0': 'Ignición apagada', '1': 'Ignición encendida', '2': 'Motor encendido' }[v] || 'Estado desconocido'), k: 'canIgnitionKey' },
+  2: { n: 'Distancia total CAN', c: 'val-status', d: 'Distancia acumulada del vehículo; H indica hectómetros e I impulsos', h: canDistanceHuman, k: 'canTotalDistance' },
+  3: { n: 'Combustible total usado CAN', c: 'val-status', h: v => v ? `${v} L` : '', d: 'Combustible total usado desde la fabricación o instalación', k: 'canTotalFuelUsed' },
+  4: { n: 'RPM del motor CAN', u: 'rpm', c: 'val-status', d: 'Revoluciones por minuto del motor', k: 'canEngineRpm' },
+  5: { n: 'Velocidad del vehículo CAN', u: 'km/h', c: 'val-status', d: 'Velocidad leída del bus CAN', k: 'canVehicleSpeed' },
+  6: { n: 'Temperatura del refrigerante CAN', u: '°C', c: 'val-status', d: 'Temperatura del refrigerante del motor', k: 'canCoolantTemperature' },
+  7: { n: 'Consumo de combustible CAN', c: 'val-status', d: 'Consumo indicado por el vehículo (L/100 km o L/h)', k: 'canFuelConsumption' },
+  8: { n: 'Nivel de combustible CAN', c: 'val-status', d: 'L indica litros; P indica porcentaje', h: canFuelLevelHuman, k: 'canFuelLevel' },
+  9: { n: 'Autonomía CAN', c: 'val-status', d: 'Distancia estimada restante; expresada en hectómetros', h: canHectometersHuman, k: 'canRange' },
+  10: { n: 'Presión del pedal del acelerador CAN', u: '%', c: 'val-status', d: 'Presión aplicada al pedal del acelerador', k: 'canAcceleratorPedalPressure' },
+  11: { n: 'Horas totales de motor CAN', u: 'h', c: 'val-status', d: 'Tiempo de funcionamiento del motor', k: 'canTotalEngineHours' },
+  12: { n: 'Tiempo total conduciendo CAN', u: 'h', c: 'val-status', d: 'Tiempo de funcionamiento con el vehículo en movimiento', k: 'canTotalDrivingTime' },
+  13: { n: 'Tiempo total en ralentí CAN', u: 'h', c: 'val-status', d: 'Tiempo de funcionamiento con el vehículo detenido', k: 'canTotalIdleTime' },
+  14: { n: 'Combustible total usado en ralentí CAN', u: 'L', c: 'val-status', d: 'Combustible acumulado durante el ralentí', k: 'canTotalIdleFuelUsed' },
+  15: { n: 'Peso del segundo eje CAN', u: 'kg', c: 'val-status', k: 'canSecondAxleWeight' },
+  16: { n: 'Información de tacógrafo CAN', c: 'val-status', d: 'Dos bytes: el byte alto corresponde al conductor 2 y el bajo al conductor 1', k: 'canTachographInformation' },
+  17: { n: 'Indicadores CAN', c: 'val-status', d: 'Máscara hexadecimal de indicadores del vehículo', k: 'canIndicators' },
+  18: { n: 'Luces CAN', c: 'val-status', d: 'Máscara hexadecimal del estado de luces', k: 'canLights' },
+  19: { n: 'Puertas CAN', c: 'val-status', d: 'Máscara hexadecimal del estado de puertas', k: 'canDoors' },
+  20: { n: 'Tiempo total de exceso de velocidad CAN', u: 'h', c: 'val-status', k: 'canTotalOverspeedTime' },
+  21: { n: 'Tiempo total de exceso de RPM CAN', u: 'h', c: 'val-status', k: 'canTotalEngineOverspeedTime' },
+  22: { n: 'Impulsos de distancia total CAN', u: 'impulsos', c: 'val-status', k: 'canTotalDistanceImpulses' },
+  23: { n: 'Arranques en frío del motor CAN', c: 'val-status', k: 'canEngineColdStarts' },
+  24: { n: 'Arranques totales del motor CAN', c: 'val-status', k: 'canEngineStarts' },
+  25: { n: 'Arranques por ignición CAN', c: 'val-status', k: 'canEngineStartsByIgnition' },
+  26: { n: 'Tiempo total de funcionamiento en frío CAN', u: 's', c: 'val-status', k: 'canColdEngineRunningTime' },
+  27: { n: 'Accionamientos del freno de mano en marcha CAN', c: 'val-status', k: 'canHandbrakeAppliesDuringRide' },
+};
+function canHectometersHuman(v) {
+  const m = /^(\d+(?:\.\d+)?)$/.exec(v || '');
+  return m ? `${(Number(m[1]) / 10).toFixed(1)} km` : '';
+}
+function canDistanceHuman(v) {
+  const m = /^H(\d+(?:\.\d+)?)$/i.exec(v || '');
+  if (m) return `${(Number(m[1]) / 10).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
+  const impulses = /^I(\d+)$/i.exec(v || '');
+  return impulses ? `${Number(impulses[1]).toLocaleString('es-ES')} impulsos` : '';
+}
+function canFuelLevelHuman(v) {
+  const m = /^([LP])(\d+(?:\.\d+)?)$/i.exec(v || '');
+  return m ? `${m[2]} ${m[1].toUpperCase() === 'L' ? 'L' : '%'}` : '';
+}
+function decodeCanData(c) {
+  c.section('DATOS CAN', 'status');
+  const state = c.take({
+    n: 'Estado del bus CAN', c: 'val-status',
+    d: v => ({ '0': 'Comunicación anormal: no se reciben datos del bus CAN', '1': 'Comunicación normal' }[v] || 'Estado desconocido'),
+    k: 'canBusState',
+  });
+  const maskValue = c.take({ n: 'Máscara de reporte CAN', c: 'val-status', d: 'Bits activados indican qué campos CAN siguen en la trama', k: 'canReportMask' });
+  const mask = hexv(maskValue);
+  if (!Number.isFinite(mask)) {
+    c.warnings.push('La máscara de reporte CAN no es hexadecimal; los datos CAN restantes se muestran sin interpretar.');
+    c.rest('DATOS CAN SIN INTERPRETAR', 'CAN');
+    return;
+  }
+  for (let b = 0; b <= 27; b++) {
+    if (bit(mask, b)) c.take(CAN_REPORT_FIELDS[b]);
+  }
+  if (bit(mask, 29)) {
+    const expansionValue = c.take({ n: 'Máscara de expansión CAN', c: 'val-status', d: 'Selecciona campos CAN expandidos; el protocolo define esta máscara en AT+GTCAN', k: 'canExpansionMask' });
+    const expansionMask = hexv(expansionValue);
+    if (!Number.isFinite(expansionMask)) {
+      c.warnings.push('La máscara de expansión CAN no es hexadecimal; los datos restantes se muestran sin interpretar.');
+      c.rest('EXPANSIÓN CAN SIN INTERPRETAR', 'CAN');
+      return;
+    }
+    if (expansionMask !== 0) {
+      c.warnings.push('La máscara de expansión CAN no es cero; los campos expandidos se muestran sin interpretar.');
+      c.rest('EXPANSIÓN CAN SIN INTERPRETAR', 'CAN');
+      return;
+    }
+  }
+  if (bit(mask, 28)) {
+    const electricMaskValue = c.take({ n: 'Máscara de reporte eléctrico CAN', c: 'val-status', d: 'La máscara selecciona los campos de vehículos eléctricos', k: 'canElectricReportMask' });
+    if (hexv(electricMaskValue) !== 0) {
+      c.warnings.push('La máscara de reporte eléctrico CAN no es cero; esos campos se muestran sin interpretar.');
+      c.rest('DATOS ELÉCTRICOS CAN SIN INTERPRETAR', 'CAN');
+      return;
+    }
+  }
+  if (bit(mask, 30) || bit(mask, 31)) {
+    c.warnings.push('La máscara CAN incluye información GNSS o celular adicional, todavía no interpretada.');
+    c.rest('INFORMACIÓN GNSS/CELULAR CAN SIN INTERPRETAR', 'CAN');
+  }
 }
 function decodeOneWire(c) {
   c.section('1-WIRE', 'status');
@@ -717,6 +824,7 @@ function finish(res, c) {
   res.sections = c.sections.filter(s => s.fields.length);
   res.positions = c.positions;
   res.data = c.data;
+  res.warnings.push(...c.warnings);
   const extra = c.sections.filter(s => s.kind === 'raw' && /EXTRA/.test(s.title)).reduce((a, s) => a + s.fields.length, 0);
   if (res.modelSwitched) res.warnings.push(`La versión de protocolo corresponde a ${res.model.name}; se decodificó con ese modelo en lugar del seleccionado.`);
   if (c.missing) res.warnings.push(`Faltan ${c.missing} campo(s) respecto a la definición del protocolo: la trama puede estar truncada o ser de otra versión de firmware.`);

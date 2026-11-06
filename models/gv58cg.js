@@ -1,13 +1,29 @@
-// GV58CG — @Track Air Interface Protocol v1.20
+// GV58CG — @Track Air Interface Protocol v14.09
 // Versión de protocolo: 802003XXYY  (802003 = GV58CG, XX = mayor, YY = menor en hex)
 // Diferencias con el GV350CEU: una sola entrada analógica, sin UART en ERI,
 // <Pin Mask> en INF y sin bit de jamming en <Position Append Mask>.
 registerModel({
   id: 'gv58cg',
   name: 'GV58CG',
-  protocol: 'v1.20',
-  note: 'Definiciones del <strong>GV58CG @Track Air Interface Protocol v1.20</strong>.',
+  protocol: 'v14.09',
+  note: 'Definiciones del <strong>GV58CG @Track Air Interface Protocol v14.09</strong>.',
   deviceTypes: { '802003': 'GV58CG' },
+
+  messages: {
+    DOM: ['event', 'Waveform Occurs · activación de salida por forma de onda'],
+  },
+
+  specs: {
+    DOM: {
+      title: 'ACTIVACIÓN DE FORMA DE ONDA',
+      pre: [
+        { n: 'Forma de onda', c: 'val-status', d: 'Tipo de forma de onda que se activó', k: 'waveShape' },
+        { n: 'Salida de forma de onda', c: 'val-id', h: v => `Salida ${v}`, d: 'ID de la salida asociada a la forma de onda', k: 'waveOutputId' },
+        RES,
+      ],
+      post: [],
+    },
+  },
 
   eriBits: {
     1: 'Datos 1-Wire', 2: 'Datos CAN', 8: 'Accesorios Bluetooth', 15: 'RAT y banda',
@@ -41,11 +57,13 @@ registerModel({
   examples: [
     ['Ubicación', [
       ['GTFRI', '+RESP:GTFRI,8020030C02,864696060004173,GV58CG,11985,10,1,1,0.0,0,118.5,117.129306,31.839197,20230808033438,0460,0001,DF5C,05FE6667,03,15,0,123.5,00123:04:44,2519,,,100,210000,,,,20230808033438,01B3$'],
+      ['GTETI', '+RESP:GTETI,8020030E06,123456789012345,GV58CG,,,1,1,0.0,0,0.0,0.000000,0.000000,20261020170000,0000,0000,0000,00000000,00,,0.0,,,,,,000000,,,,20261020170000,0001$'],
       ['+BUFF:GTFRI', '+BUFF:GTFRI,8020030C02,863286020684354,GV58CG,,10,1,1,0.0,0,0.5,121.392413,31.164143,20160804044602,0460,0000,1877,03A3,00,104.8,,,,100,210100,,,,20140804044611,2E78$'],
       ['GTRTL', '+RESP:GTRTL,8020030C02,866775051515393,GV58CG,,00,1,2,0.0,0,49.4,117.129046,31.839261,20230905010900,0460,0000,550B,B7B1,01,8,19.6,20230905090901,4983$'],
       ['GTLBC', '+RESP:GTLBC,8020030C02,135790246811220,GV58CG,13275605061,1,4.3,92,70.0,121.354335,31.222073,20090214013254,0460,0000,18d8,6141,01,1,20090214093254,008E$'],
     ]],
     ['Alarmas y eventos', [
+      ['GTDOM', '+RESP:GTDOM,8020030E06,123456789012345,GV58CG,5,1,,1,0.0,0,0.0,0.000000,0.000000,20261020170000,0000,0000,0000,00000000,00,20261020170000,0001$'],
       ['GTIGN', '+RESP:GTIGN,8020030C02,866775051515393,GV58CG,368,0,0.0,217,85.3,117.129092,31.839260,20230826095554,0460,0000,550B,B7B1,01,12,12345:12:34,0.0,20230826175642,062D$'],
       ['GTIGF', '+RESP:GTIGF,8020030C02,866775051515393,GV58CG,12796,1,0.0,190,63.5,117.129260,31.839038,20230902101235,0460,0000,550B,B7A9,01,12,12345:12:34,19.6,20230902181235,44B2$'],
       ['GTVGF', '+RESP:GTVGF,8020030C02,866775051515617,GV58CG,00,7,341,1,0.0,174,35.5,117.105078,31.824889,20230905070523,0460,0000,550B,080A29AA,01,12,12345:12:34,1312.1,20230905150523,2010$'],

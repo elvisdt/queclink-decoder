@@ -7,7 +7,7 @@ Decodificador de tramas ASCII del protocolo **Queclink @Track** que corre por co
 | Modelo   | Protocolo | Versión de protocolo en la trama |
 |----------|-----------|----------------------------------|
 | GV350CEU | v13.06 (compatible desde v09.04) | `74XXYY`, p. ej. `740D01` |
-| GV58CG   | v1.20     | `802003XXYY`, p. ej. `8020030C02` |
+| GV58CG   | v14.09 (incluye `GTDOM` desde v13.01 y `GTETI` desde v14.06) | `802003XXYY`, p. ej. `8020030C02` |
 
 El modelo se detecta automáticamente a partir de la versión de protocolo; también puedes elegirlo en la barra superior o con la URL (`#gv350ceu`, `#gv58cg`).
 
@@ -74,7 +74,7 @@ GitHub Actions los ejecuta en cada push (`.github/workflows/test.yml`).
 ## Limitaciones conocidas
 
 - Solo se interpreta el formato ASCII; el formato HEX no está soportado.
-- Los datos CAN dentro de ERI dependen de la configuración de `AT+GTCAN`, así que se muestran sin interpretar.
+- En ERI del GV350CEU, los campos CAN se interpretan usando la máscara incluida en la trama. Las máscaras de expansión CAN no nulas y los datos eléctricos/GNSS/celulares adicionales aún se muestran sin interpretar.
 - GV58CG: el bloque Bluetooth de ERI se decodifica con la estructura del GV350CEU, y el ejemplo del manual no coincide del todo. Conviene verificarlo con tramas reales.
 
 ## Aviso
